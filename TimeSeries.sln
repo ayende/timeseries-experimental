@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28407.52
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimeSeries", "TimeSeries\TimeSeries.csproj", "{2C96526B-076A-4CE1-9C1A-3233E9E838E9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2C96526B-076A-4CE1-9C1A-3233E9E838E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2C96526B-076A-4CE1-9C1A-3233E9E838E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2C96526B-076A-4CE1-9C1A-3233E9E838E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2C96526B-076A-4CE1-9C1A-3233E9E838E9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {604A5E33-D13D-4D51-AEC3-F7DCFCED8976}
+	EndGlobalSection
+EndGlobal
