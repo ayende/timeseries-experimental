@@ -5,6 +5,8 @@ namespace TimeSeries
 {
     public unsafe struct TimeSeriesValuesSegment
     {
+        public const int BitsForTagLen = 11;
+
         public const int BitsForFirstTimestamp = 31;
         public const int LeadingZerosLengthBits = 5;
         public const int BlockSizeAdjustment = 1;
@@ -42,12 +44,12 @@ namespace TimeSeries
             new BitsBuffer(_buffer + DataStart, _capacity - DataStart).Initialize();
         }
 
-        public bool Append(int deltaFromStart, double val)
+        public bool Append(int deltaFromStart, double val, Span<byte> tag)
         {
-            return Append(deltaFromStart, new Span<double>(&val, 1));
+            return Append(deltaFromStart, new Span<double>(&val, 1), tag);
         }
 
-        public bool Append(int deltaFromStart, Span<double> vals)
+        public bool Append(int deltaFromStart, Span<double> vals, Span<byte> tag)
         {
             if (vals.Length != Header->NumberOfValues)
                 ThrowInvalidNumberOfValues(vals);
@@ -56,7 +58,7 @@ namespace TimeSeries
             // here it is cheaper to check a value that is somewhat bigger than the max
             // value we could ever write here than to compute the exact size. Worst case,
             // we'll open a segment a few bytes early. 
-            if (bitsBuffer.HasBits((vals.Length + 2) * sizeof(long) * 8) == false)
+            if (bitsBuffer.HasBits((vals.Length + 2) * sizeof(long) * 8 + tag.Length) == false)
                 return false;
 
             var prevs = new Span<StatefulTimeStampValue>(_buffer + sizeof(SegmentHeader), Header->NumberOfValues);
@@ -66,8 +68,86 @@ namespace TimeSeries
             {
                 AddValue(ref prevs[i], ref bitsBuffer, vals[i]);
             }
+
+            WriteTag(tag, ref bitsBuffer);
+
             Header->PreviousTimeStamp = deltaFromStart;
+            Header->NumberOfEntries++;
             return true;
+        }
+
+        private void WriteTag(Span<byte> tag, ref BitsBuffer bitsBuffer)
+        {
+            int previousTagPos = Header->PreviousTagPosition;
+            var tagEnum = new TagEnumerator(bitsBuffer, Header->PreviousTagPosition);
+            if (tagEnum.TryGetPrevious(out var prevTag, out var previousIndex))
+            {
+                if (prevTag.SequenceEqual(tag))
+                {
+                    bitsBuffer.AddValue(0, 1); // reuse previous buffer
+                    return;
+                }
+                // go back a maximum of 8 tags, to avoid N**2 operations
+                // after 8 tags, we'll just write the tag again
+                for (int i = 0; i < 8; i++)
+                {
+                    if (tagEnum.TryGetPrevious(out prevTag, out previousIndex) == false)
+                        break;
+                    if (prevTag.SequenceEqual(tag))
+                    {
+                        bitsBuffer.AddValue(1, 1);
+                        bitsBuffer.AddValue((ulong)previousIndex, BitsForTagLen);
+                        return;
+                    }
+                }
+            }
+            bitsBuffer.AddValue(1, 1);
+            var currentTagPosition = bitsBuffer.NumberOfBits + BitsForTagLen;
+            bitsBuffer.AddValue((ulong)currentTagPosition, BitsForTagLen);
+            bitsBuffer.AddValue((ulong)tag.Length, BitsForTagLen);
+            bitsBuffer.AddValue(Header->PreviousTagPosition, BitsForTagLen);
+            bitsBuffer.Header->BitsPosition += ToByteAlignment(bitsBuffer.Header->BitsPosition);
+            var pos = bitsBuffer.NumberOfBits / 8;
+            tag.CopyTo(new Span<byte>(bitsBuffer.Buffer + bitsBuffer.NumberOfBits / 8, _capacity - pos));
+            bitsBuffer.Header->BitsPosition += (ushort)(tag.Length * 8);
+            Header->PreviousTagPosition = (ushort)currentTagPosition;
+        }
+
+        private static ushort ToByteAlignment(int bits)
+        {
+            var mod = bits % 8;
+            if (mod == 0)
+                return 0;
+            return (ushort)(8 - mod);
+        }
+
+
+        public ref struct TagEnumerator
+        {
+            BitsBuffer _bitsBuffer;
+            int _previousTagPos;
+
+            public TagEnumerator(BitsBuffer bitsBuffer, int previousTagPos)
+            {
+                _bitsBuffer = bitsBuffer;
+                _previousTagPos = previousTagPos;
+            }
+
+            public bool TryGetPrevious(out Span<byte> tag, out int previousIndex)
+            {
+                if(_previousTagPos == 0)
+                {
+                    tag = default;
+                    previousIndex = default;
+                    return false;
+                }
+                var offset = previousIndex = _previousTagPos;
+                var tagLen = (int)_bitsBuffer.ReadValue(ref offset, BitsForTagLen);
+                _previousTagPos = (int)_bitsBuffer.ReadValue(ref offset, BitsForTagLen);
+                offset += ToByteAlignment(previousIndex);
+                tag = new Span<byte>(_bitsBuffer.Buffer + offset/8, tagLen);
+                return true;
+            }
         }
 
         public BitsBuffer GetBitsBuffer() => new BitsBuffer(_buffer + DataStart, _capacity - DataStart);
@@ -174,7 +254,7 @@ namespace TimeSeries
                 _previousTimeStamp = _previousTimeStampDelta = -1;
             }
 
-            public bool MoveNext(out int timestamp, Span<StatefulTimeStampValue> values)
+            public bool MoveNext(out int timestamp, Span<StatefulTimeStampValue> values, ref Span<byte> tag)
             {
                 if (values.Length != _parent.Header->NumberOfValues)
                     ThrowInvalidNumberOfValues();
@@ -223,6 +303,21 @@ namespace TimeSeries
                     }
 
                     values[i].LongValue = values[i].LongValue ^ xorValue;
+                }
+
+                var reuseTag = bitsBuffer.ReadValue(ref _bitsPosisition, 1);
+                if(reuseTag != 0)
+                {
+                    var tagPos = (int)bitsBuffer.ReadValue(ref _bitsPosisition, BitsForTagLen);
+                    var nextTag = tagPos == _bitsPosisition;
+                    var tagLen = (int)bitsBuffer.ReadValue(ref tagPos, BitsForTagLen);
+                    tagPos += BitsForTagLen; // skip over previous
+                    tagPos += ToByteAlignment(tagPos);
+                    tag = new Span<byte>(bitsBuffer.Buffer + tagPos/8, tagLen);
+                    if (nextTag)
+                    {
+                        _bitsPosisition = (tagPos + tagLen * 8);
+                    }
                 }
 
                 return true;

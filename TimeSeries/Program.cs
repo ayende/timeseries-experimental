@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace TimeSeries
 {
@@ -45,7 +46,7 @@ namespace TimeSeries
             {
                 var ms = (int)(item.Date - baseDate).TotalMilliseconds;
 
-                if (segment.Append(ms, item.Vals[0]) == false)
+                if (segment.Append(ms, item.Vals[0], Encoding.UTF8.GetBytes("machines/1-A")) == false)
                     break;
                 index++;
             }
@@ -54,12 +55,17 @@ namespace TimeSeries
 
             var enumerator = segment.GetEnumerator();
             var vals = new StatefulTimeStampValue[1];
+            Span<byte> tag = default;
             for (int i = 0; i < index; i++)
             {
-                var a = enumerator.MoveNext(out var ms, vals);
-                if(a == false)
+                var a = enumerator.MoveNext(out var ms, vals, ref tag);
+                if (a == false)
                 {
                     Console.WriteLine("missing");
+                }
+                if (tag.SequenceEqual(Encoding.UTF8.GetBytes("machines/1-A")) == false)
+                {
+                    Console.WriteLine("Tag");
                 }
                 var expected = (int)(items[i].Date - baseDate).TotalMilliseconds;
                 if (ms != expected)
@@ -70,29 +76,34 @@ namespace TimeSeries
                 //    vals[1].DoubleValue != items[i].Vals[1] ||
                 //    vals[2].DoubleValue != items[i].Vals[2])
                 //if (vals[0].DoubleValue != Math.Round(_heartRate[i],0))
-                if(vals[0].DoubleValue != items[i].Vals[0])
+                if (vals[0].DoubleValue != items[i].Vals[0])
                 {
                     Console.WriteLine("val");
                 }
             }
 
-            Console.WriteLine(index);
+            //Console.WriteLine(index);
 
             //var buffer = (byte*)Marshal.AllocHGlobal(2048);
             //var segment = new TimeSeriesValuesSegment(buffer, 2048);
             //segment.Initialize(2);
 
-            //segment.Append(50, new double[] { 2, 3 });
-            //segment.Append(70, new double[] { 23, 13 });
-            //segment.Append(80, new double[] { 2, 3 });
+            //segment.Append(50, new double[] { 2, 3 }, Encoding.UTF8.GetBytes("hello"));
+            //segment.Append(70, new double[] { 23, 153 }, Encoding.UTF8.GetBytes("hello 2"));
+            //segment.Append(80, new double[] { 12, 3 }, Encoding.UTF8.GetBytes("world"));
+            //segment.Append(170, new double[] { 23, 133 }, Encoding.UTF8.GetBytes("hello"));
 
+            //Console.WriteLine(segment.GetBitsBuffer().NumberOfBits/8);
 
             //var enumerator = segment.GetEnumerator();
             //var values = new Span<StatefulTimeStampValue>(new StatefulTimeStampValue[2]);
-            //while (enumerator.MoveNext(out int ts, values))
+            //Span<byte> tag = default;
+            //while (enumerator.MoveNext(out int ts, values, ref tag))
             //{
-            //    Console.WriteLine(ts + " " + string.Join(", ", values.ToArray().Select(x=>x.Value)));
-
+            //    Console.WriteLine(ts + " " + 
+            //            string.Join(", ", values.ToArray().Select(x => x.DoubleValue)) + " " + 
+            //            Encoding.UTF8.GetString(tag)
+            //    );
             //}
         }
 

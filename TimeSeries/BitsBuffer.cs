@@ -7,9 +7,8 @@ namespace TimeSeries
     {
         public const int UnusedBitsInLastByteBitLength = 3;
 
-        byte* _buffer;
+        public byte* Buffer;
         int _size;
-        private BlueEyes.BitBuffer temp;
         public BitsBufferHeader* Header;
 
         public int NumberOfBits => Header->BitsPosition;
@@ -22,9 +21,8 @@ namespace TimeSeries
         public BitsBuffer(byte* buffer, int size)
         {
             Header = (BitsBufferHeader*)buffer;
-            _buffer = buffer + sizeof(BitsBufferHeader);
+            Buffer = buffer + sizeof(BitsBufferHeader);
             _size = size;
-            temp = new BlueEyes.BitBuffer(1024);
         }
 
         public void Initialize()
@@ -68,20 +66,16 @@ namespace TimeSeries
             for (int i = 0; i < bitsToRead; i++)
             {
                 value <<= 1;
-                ulong bit = (ulong)((_buffer[bitsPosition >> 3] >> (7 - (bitsPosition & 0x7))) & 1);
+                ulong bit = (ulong)((Buffer[bitsPosition >> 3] >> (7 - (bitsPosition & 0x7))) & 1);
                 value += bit;
                 bitsPosition++;
             }
-
-
-
 
             return value;
         }
 
         public void AddValue(ulong value, int bitsInValue)
         {
-            temp.AddValue(value, bitsInValue);
             Debug.Assert(HasBits(bitsInValue));
 
             if (bitsInValue == 0)
@@ -98,7 +92,7 @@ namespace TimeSeries
             if (bitsInValue <= bitsAvailable)
             {
                 // The value fits in the last byte
-                _buffer[lastByteIndex] += (byte)(value << (bitsAvailable - bitsInValue));
+                Buffer[lastByteIndex] += (byte)(value << (bitsAvailable - bitsInValue));
                 return;
             }
 
@@ -106,7 +100,7 @@ namespace TimeSeries
             if (bitsAvailable > 0)
             {
                 // Fill up the last byte
-                _buffer[lastByteIndex] += (byte)(value >> (bitsInValue - bitsAvailable));
+                Buffer[lastByteIndex] += (byte)(value >> (bitsInValue - bitsAvailable));
                 bitsLeft -= bitsAvailable;
                 lastByteIndex++;
             }
@@ -115,7 +109,7 @@ namespace TimeSeries
             {
                 // We have enough bits to fill up an entire byte
                 byte next = (byte)((value >> (bitsLeft - 8)) & 0xFF);
-                _buffer[lastByteIndex++] = next;
+                Buffer[lastByteIndex++] = next;
                 bitsLeft -= 8;
             }
 
@@ -124,7 +118,7 @@ namespace TimeSeries
                 // Start a new byte with the rest of the bits
                 ulong mask = (ulong)((1 << bitsLeft) - 1L);
                 byte next = (byte)((value & mask) << (8 - bitsLeft));
-                _buffer[lastByteIndex] = next;
+                Buffer[lastByteIndex] = next;
             }
         }
     }

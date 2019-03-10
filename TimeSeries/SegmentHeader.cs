@@ -10,8 +10,12 @@ namespace TimeSeries
         [FieldOffset(4)]
         public int PreviousDelta;
         [FieldOffset(8)]
+        public ushort NumberOfEntries;
+        [FieldOffset(10)]
+        public ushort PreviousTagPosition;
+        [FieldOffset(12)]
         public byte NumberOfValues;
-        [FieldOffset(9)]
-        public fixed byte Reserved[7];
+        [FieldOffset(3)]
+        public fixed byte Reserved[3];
     }
 }
