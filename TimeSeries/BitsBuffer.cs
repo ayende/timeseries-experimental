@@ -5,8 +5,6 @@ namespace TimeSeries
 {
     public unsafe struct BitsBuffer
     {
-        public const int UnusedBitsInLastByteBitLength = 3;
-
         public byte* Buffer;
         public int Size;
         public BitsBufferHeader* Header;
@@ -25,14 +23,12 @@ namespace TimeSeries
             Size = size;
         }
 
-        public void Initialize()
-        {
-            AddValue(0, UnusedBitsInLastByteBitLength);
-        }
 
         private ushort BitsAvailableInLastByte()
         {
             var numBits = NumberOfBits;
+            if (numBits == 0)
+                return 8;
             int bitsAvailable = ((numBits & 0x7) != 0) ? (8 - (numBits & 0x7)) : 0;
             return (ushort)bitsAvailable;
         }
@@ -127,7 +123,7 @@ namespace TimeSeries
             if (HasBits(tempBitsBuffer.NumberOfBits) == false)
                 return false;
 
-            int read = UnusedBitsInLastByteBitLength;
+            int read = 0;
             while (read < tempBitsBuffer.NumberOfBits)
             {
                 var toRead = Math.Min(64, tempBitsBuffer.NumberOfBits - read);
