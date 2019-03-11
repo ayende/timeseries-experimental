@@ -127,29 +127,13 @@ namespace TimeSeries
             if (HasBits(tempBitsBuffer.NumberOfBits) == false)
                 return false;
 
-            var lastByteIndex = Header->BitsPosition / 8;
-            var bitsOffset = Header->BitsPosition % 8;
-            byte firstByte = (byte)(tempBitsBuffer.Buffer[0] & (0xFF >> bitsOffset));
-            Buffer[lastByteIndex++] |= firstByte;
-
-            if (Header->BitsPosition > 10)
+            int read = UnusedBitsInLastByteBitLength;
+            while (read < tempBitsBuffer.NumberOfBits)
             {
-                int index = 147;
-                var v = ReadValue(ref index, 1);
+                var toRead = Math.Min(64, tempBitsBuffer.NumberOfBits - read);
+                var result = tempBitsBuffer.ReadValue(ref read, toRead);
+                AddValue(result, toRead);
             }
-            var bitsRemaining = tempBitsBuffer.NumberOfBits - bitsOffset;
-
-            var tempSpan = new Span<byte>(tempBitsBuffer.Buffer + 1, bitsRemaining / 8);
-            tempSpan.CopyTo(new Span<byte>(Buffer+lastByteIndex, Size - lastByteIndex));
-
-            lastByteIndex += tempSpan.Length;
-
-            bitsRemaining -= tempSpan.Length * 8;
-
-            if (bitsRemaining > 0)
-                Buffer[lastByteIndex++] = tempBitsBuffer.Buffer[tempBitsBuffer.NumberOfBits / 8];
-
-            Header->BitsPosition += (ushort)tempBitsBuffer.NumberOfBits;
 
             return true;
         }

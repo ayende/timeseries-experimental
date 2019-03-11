@@ -66,7 +66,7 @@ namespace TimeSeries
             *tempHeader = *Header;
 
             var tempBitsBuffer = new BitsBuffer(tempBuffer, maximumSize);
-            tempBitsBuffer.AddValue(0UL, actualBitsBuffer.NumberOfBits % 8);// align the bits
+            tempBitsBuffer.Initialize();
 
             var prevs = new Span<StatefulTimeStampValue>(_buffer + sizeof(SegmentHeader), Header->NumberOfValues);
             AddTimeStamp(deltaFromStart, ref tempBitsBuffer, tempHeader);
@@ -85,7 +85,7 @@ namespace TimeSeries
 
             if (actualBitsBuffer.AddBits(tempBitsBuffer) == false)
                 return false;
-            
+
             *Header = *tempHeader;
 
             return true;
