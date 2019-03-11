@@ -8,21 +8,21 @@ namespace TimeSeries
         public const int UnusedBitsInLastByteBitLength = 3;
 
         public byte* Buffer;
-        int _size;
+        public int Size;
         public BitsBufferHeader* Header;
 
         public int NumberOfBits => Header->BitsPosition;
 
         public bool HasBits(int numberOfBits)
         {
-            return Header->BitsPosition + numberOfBits <= _size * 8;
+            return Header->BitsPosition + numberOfBits <= Size * 8;
         }
 
         public BitsBuffer(byte* buffer, int size)
         {
             Header = (BitsBufferHeader*)buffer;
             Buffer = buffer + sizeof(BitsBufferHeader);
-            _size = size;
+            Size = size;
         }
 
         public void Initialize()
@@ -59,7 +59,7 @@ namespace TimeSeries
             if (bitsToRead > 64)
                 throw new ArgumentException($"Unable to read more than 64 bits at a time.  Requested {bitsToRead} bits", nameof(bitsToRead));
 
-            if (bitsPosition + bitsToRead > _size * 8)
+            if (bitsPosition + bitsToRead > Size * 8)
                 throw new ArgumentException($"Not enough bits left in the buffer. Requested {bitsToRead} bits.  Current Position: {bitsPosition}", nameof(bitsToRead));
 
             ulong value = 0;
@@ -120,6 +120,38 @@ namespace TimeSeries
                 byte next = (byte)((value & mask) << (8 - bitsLeft));
                 Buffer[lastByteIndex] = next;
             }
+        }
+
+        internal bool AddBits(BitsBuffer tempBitsBuffer)
+        {
+            if (HasBits(tempBitsBuffer.NumberOfBits) == false)
+                return false;
+
+            var lastByteIndex = Header->BitsPosition / 8;
+            var bitsOffset = Header->BitsPosition % 8;
+            byte firstByte = (byte)(tempBitsBuffer.Buffer[0] & (0xFF >> bitsOffset));
+            Buffer[lastByteIndex++] |= firstByte;
+
+            if (Header->BitsPosition > 10)
+            {
+                int index = 147;
+                var v = ReadValue(ref index, 1);
+            }
+            var bitsRemaining = tempBitsBuffer.NumberOfBits - bitsOffset;
+
+            var tempSpan = new Span<byte>(tempBitsBuffer.Buffer + 1, bitsRemaining / 8);
+            tempSpan.CopyTo(new Span<byte>(Buffer+lastByteIndex, Size - lastByteIndex));
+
+            lastByteIndex += tempSpan.Length;
+
+            bitsRemaining -= tempSpan.Length * 8;
+
+            if (bitsRemaining > 0)
+                Buffer[lastByteIndex++] = tempBitsBuffer.Buffer[tempBitsBuffer.NumberOfBits / 8];
+
+            Header->BitsPosition += (ushort)tempBitsBuffer.NumberOfBits;
+
+            return true;
         }
     }
 }
