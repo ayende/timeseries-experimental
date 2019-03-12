@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using TimeSeries.Tests;
 
 namespace TimeSeries
 {
@@ -108,6 +109,10 @@ namespace TimeSeries
             //            Encoding.UTF8.GetString(tag)
             //    );
             //}
+
+            new Basic().CanSetBits();
+
         }
+
     }
 }

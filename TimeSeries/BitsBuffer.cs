@@ -82,24 +82,19 @@ namespace TimeSeries
             if (bitsInValue == 0)
                 return; // noop
 
-            var byteIndex = bitsPosition / 8;
-            var bitIndex = bitsPosition % 8;
-
-            if(bitIndex > 0)
+            for (int i = 0; i < bitsInValue; i++)
             {
-                Buffer[byteIndex] &= (byte)~(0xFF >> (bitIndex));
-                Buffer[byteIndex] &= (byte)(value << (bitIndex));
+                var bit = (value & (1UL << (bitsInValue-i-1))) != 0;
+                var bitIndex = bitsPosition + i;
+                if (bit)
+                {
+                    Buffer[bitIndex >> 3] |= (byte)(1 << (7 - (bitIndex & 0x7)));
+                }
+                else
+                {
+                    Buffer[bitIndex >> 3] &= (byte)~(1 << (7 - (bitIndex & 0x7)));
+                }
             }
-
-            //for (int i = 0; i < bitsInValue; i++)
-            //{
-            //    var byteIndex = (bitsPosition + i) / 8;
-            //    var bitIndex = 7 - ((bitsPosition + i) % 8);
-            //    if ((value & (1UL << i)) != 0)
-            //        Buffer[byteIndex] |= (byte)(1 << bitIndex);
-            //    else
-            //        Buffer[byteIndex] &= (byte)~(1 << bitIndex);
-            //}
         }
 
         public void AddValue(ulong value, int bitsInValue)

@@ -16,11 +16,11 @@ namespace TimeSeries.Tests
             bitsBufffer.AddValue(3, 7);
             bitsBufffer.AddValue(279, 18);
 
-            bitsBufffer.SetBits(6, 5, 7);
+            bitsBufffer.SetBits(6, 7, 7);
 
             int index = 0;
             Assert.Equal(12UL, bitsBufffer.ReadValue(ref index, 6));
-            Assert.Equal(5UL, bitsBufffer.ReadValue(ref index, 7));
+            Assert.Equal(7UL, bitsBufffer.ReadValue(ref index, 7));
             Assert.Equal(279UL, bitsBufffer.ReadValue(ref index, 18));
         }
 
