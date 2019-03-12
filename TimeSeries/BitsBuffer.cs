@@ -11,10 +11,16 @@ namespace TimeSeries
 
         public int NumberOfBits => Header->BitsPosition;
 
-        public bool HasBits(int numberOfBits)
+        public bool HasAdditionalBits(int numberOfBits)
         {
-            return Header->BitsPosition + numberOfBits <= Size * 8;
+            return HasEnoughBits(Header->BitsPosition, numberOfBits);
         }
+
+        public bool HasEnoughBits(int bitsPosition, int numberOfBits)
+        {
+            return bitsPosition + numberOfBits <= Size * 8;
+        }
+
 
         public BitsBuffer(byte* buffer, int size)
         {
@@ -70,9 +76,35 @@ namespace TimeSeries
             return value;
         }
 
+        public void SetBits(int bitsPosition, ulong value, int bitsInValue)
+        {
+            Debug.Assert(HasEnoughBits(bitsPosition, bitsInValue));
+            if (bitsInValue == 0)
+                return; // noop
+
+            var byteIndex = bitsPosition / 8;
+            var bitIndex = bitsPosition % 8;
+
+            if(bitIndex > 0)
+            {
+                Buffer[byteIndex] &= (byte)~(0xFF >> (bitIndex));
+                Buffer[byteIndex] &= (byte)(value << (bitIndex));
+            }
+
+            //for (int i = 0; i < bitsInValue; i++)
+            //{
+            //    var byteIndex = (bitsPosition + i) / 8;
+            //    var bitIndex = 7 - ((bitsPosition + i) % 8);
+            //    if ((value & (1UL << i)) != 0)
+            //        Buffer[byteIndex] |= (byte)(1 << bitIndex);
+            //    else
+            //        Buffer[byteIndex] &= (byte)~(1 << bitIndex);
+            //}
+        }
+
         public void AddValue(ulong value, int bitsInValue)
         {
-            Debug.Assert(HasBits(bitsInValue));
+            Debug.Assert(HasAdditionalBits(bitsInValue));
 
             if (bitsInValue == 0)
             {
@@ -85,9 +117,15 @@ namespace TimeSeries
 
             Header->BitsPosition += (ushort)bitsInValue;
 
+            WriteBits(value, bitsInValue, lastByteIndex, bitsAvailable);
+        }
+
+        private void WriteBits(ulong value, int bitsInValue, int lastByteIndex, ushort bitsAvailable)
+        {
             if (bitsInValue <= bitsAvailable)
             {
                 // The value fits in the last byte
+                
                 Buffer[lastByteIndex] += (byte)(value << (bitsAvailable - bitsInValue));
                 return;
             }
@@ -114,13 +152,13 @@ namespace TimeSeries
                 // Start a new byte with the rest of the bits
                 ulong mask = (ulong)((1 << bitsLeft) - 1L);
                 byte next = (byte)((value & mask) << (8 - bitsLeft));
-                Buffer[lastByteIndex] = next;
+                Buffer[lastByteIndex] |= next;
             }
         }
 
         internal bool AddBits(BitsBuffer tempBitsBuffer)
         {
-            if (HasBits(tempBitsBuffer.NumberOfBits) == false)
+            if (HasAdditionalBits(tempBitsBuffer.NumberOfBits) == false)
                 return false;
 
             int read = 0;

@@ -100,7 +100,11 @@ namespace TimeSeries
             if (tag.Length > byte.MaxValue)
                 ThrowInvalidTagLength();
 
-            var tagEnum = new TagEnumerator(GetBitsBuffer() /* need to read the previous values */, tempHeader->PreviousTagPosition);
+            var actualBitsBuffer = GetBitsBuffer();
+            int a = 136;
+            var r = actualBitsBuffer.ReadValue(ref a, 11);
+            var tagEnum = new TagEnumerator(actualBitsBuffer /* need to read the previous values */, 
+                tempHeader->PreviousTagPosition);
             if (tagEnum.TryGetPrevious(out var prevTag, out var previousIndex))
             {
                 if (prevTag.SequenceEqual(tag))
@@ -118,6 +122,17 @@ namespace TimeSeries
                     {
                         tempBitsBuffer.AddValue(1, 1);
                         tempBitsBuffer.AddValue((ulong)previousIndex, BitsForTagLen);
+                        if (previousIndex != 0)
+                        {
+                            // re-arrange the previous pointer for the previous value
+                            // to point to the current one
+                            actualBitsBuffer.SetBits(
+                                (previousIndex + 1 + tag.Length) * 8,
+                                tempHeader->PreviousTagPosition,
+                                BitsForTagLen
+                                );
+                            tempHeader->PreviousTagPosition = (ushort)previousIndex;
+                        }
                         return;
                     }
                 }
