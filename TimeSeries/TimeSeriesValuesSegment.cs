@@ -1,6 +1,6 @@
-﻿using System;
+﻿using Sparrow.Binary;
+using System;
 using System.Diagnostics;
-using System.Runtime.Intrinsics.X86;
 
 namespace TimeSeries
 {
@@ -262,8 +262,8 @@ namespace TimeSeries
 
             bitsBuffer.AddValue(1, 1);
 
-            var leadingZeroes = (int)Lzcnt.X64.LeadingZeroCount(xorWithPrevious);
-            var trailingZeroes = (int)Bmi1.X64.TrailingZeroCount(xorWithPrevious);
+            var leadingZeroes = Bits.LeadingZeroes(xorWithPrevious);
+            var trailingZeroes = Bits.TrailingZeroesInBytes(xorWithPrevious);
       
             if (leadingZeroes > MaxLeadingZerosLength)
                 leadingZeroes = MaxLeadingZerosLength;
